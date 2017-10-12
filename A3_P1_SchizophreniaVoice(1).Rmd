@@ -5,8 +5,11 @@ date: "July 17, 2016"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+```{r}
 knitr::opts_chunk$set(echo = TRUE)
+wd = setwd("C:/Users/annaa/OneDrive/3. semester/Exp. Method 3/Practical/Assignment4/Assignment4")
+library(tseriesChaos);library(nonlinearTseries);library(SparseM);library(crqa);library(plyr);library(lme4)
+
 ```
 
 ## Assignment 2 - Part 1 - Assessing voice in schizophrenia
@@ -19,21 +22,113 @@ N.B. Question to be answered via email to Celine: can you characterize voice in 
 
 N.B. There are looots of files to be dealt with. Probably too many for your computer. This is a challenge for you. Some (complementary) possible strategies: You can select a subset of files only (and you have to justify your choice). You can learn how to use the apply() or map() functions. You can coordinate with classmates.
 
+
 1. In the course of this assignment you have to first select one datafile and figure out how to:
 
 - Extract "standard" descriptors of pitch: Mean, standard deviation, range
 - Extract less "standard" descriptors of pitch you can think of (e.g. median, iqr, mean absoluted deviation, coefficient of variation)
 - Extract "complex" descriptors: recurrence quantification analysis
 
+```{r}
+Pitch_file = read.delim("C:/Users/annaa/OneDrive/3. semester/Exp. Method 3/Practical/Assignment4/Assignment4/Pitch/Study1D0S101T2_f0.txt")
+demo_data = read.delim("DemoData.txt")
+
+#descriptive stats
+mean(Pitch_file$f0) #139.92
+sd(Pitch_file$f0) #31.38
+median(Pitch_file$f0) #125.59
+IQR(Pitch_file$f0) #42.14 intercortile range
+mad(Pitch_file$f0) #23.77
+sd(Pitch_file$f0)/mean(Pitch_file$f0)*100 #22.43
+
+#RQA
+par = list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip") #set parameter
+
+#parameters
+ans = optimizeParam(Pitch_file$f0,Pitch_file$f0, par,min.rec = 3.5, max.rec = 4.5) 
+ans
+
+Results = crqa(Pitch_file$f0, Pitch_file$f0, delay=35, embed = 3, radius = 5.72, normalize = 0, rescale = 0, mindiagline = 2, minvertline = 2)
+
+#Recurrence plot
+RP=Results$RP
+RP = matrix(as.numeric(RP), nrow = ncol(RP)) 
+cols = c("white","blue4")
+image(RP, xlab = "", ylab = "", col = cols)
+
+
+```
+
 2. Second you will have to turn the code into a function and loop through all the files (or even better use apply/sapply/lapply)
 - Remember to extract the relevant information from the file names (Participant, Diagnosis, Trial, Study)
+
+```{r}
+
+FILES = list.files(path = wd, pattern = "^Study4", recursive = TRUE)
+
+
+n=1 
+for (i in FILES)
+  {
+  
+file = read.delim(i)
+
+
+par = try(list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip")) #set parameter
+
+ans = try(optimizeParam(file$f0,file$f0, par,min.rec = 3.5, max.rec = 4.5))
+
+
+Results = try(crqa(file$f0, file$f0, delay=35, embed = 3, radius = 5.72, normalize = 0, rescale = 0, mindiagline = 2, minvertline = 2))
+
+return(Results)
+  n=n+1 #next time you run the loop - it will be second time and next third, and so on
+  
+}
+
+
+
+
+
+```
 
 3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
 - Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
 3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
 
+```{r}
+#read data
+articulation = read.csv("Articulation.txt")
+demo_data = read.delim("DemoData.txt")
+
+#extract relevant info from string in subject
+articulation$Subject=substr(articulation$soundname, 8, 12)
+
+#set control to 0S and schizophrenia to 10
+demo_data$Diagnosis=revalue(demo_data$Diagnosis,c("Control"="0S","Schizophrenia"="1S"))
+
+#Make coloumn with values in diagnosis and values in subject next to each other
+demo_data$paste = paste(demo_data$Diagnosis,demo_data$Subject)
+
+#delete the space 
+demo_data$paste = sub(" ", "", demo_data$paste)                             
+
+#call the "paste coloumn" "Subject"(the same as in articulation)
+demo_data$Subject = demo_data$paste
+                     
+#merge demo_data and articulation data                           
+data_all = merge(demo_data, articulation, by = "Subject")
+
+data_all$Diagnosis=revalue(data_all$Diagnosis,c("0S"="Control","1S"="Schizophrenia"))
+
+```
 4. Bonus Question: Compare effect size of diagnosis across the different measures. Which measure seems most sensitive?
 - Tip: to compare across measures you need to put all of them on the same scale, that is, you need to "standardize" them (z-score)
+
+```{r}
+
+
+```
 
 5. Bonus question. In the Clinical Info file you have additional information about the participants. Which additional parameters (e.g. age, gender) should we control for? Report the effects.
 
