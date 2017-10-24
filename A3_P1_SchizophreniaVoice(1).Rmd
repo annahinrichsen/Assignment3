@@ -8,7 +8,7 @@ output: html_document
 ```{r}
 knitr::opts_chunk$set(echo = TRUE)
 wd = setwd("C:/Users/annaa/OneDrive/3. semester/Exp. Method 3/Practical/Assignment4/Assignment4")
-library(tseriesChaos);library(nonlinearTseries);library(SparseM);library(crqa);library(plyr);library(lme4);library(modelr)
+library(tseriesChaos);library(nonlinearTseries);library(SparseM);library(crqa);library(plyr);library(lme4);library(modelr);library(tibble);library(MuMIn):library(lmerTest)
 
 ```
 
@@ -39,7 +39,7 @@ sd(Pitch_file$f0) #31.38
 median(Pitch_file$f0) #125.59
 IQR(Pitch_file$f0) #42.14 intercortile range
 mad(Pitch_file$f0) #23.77
-sd(Pitch_file$f0)/mean(Pitch_file$f0)*100 #22.43
+sd(Pitch_file$f0)/mean(Pitch_file$f0)*100 #22.43 coefficient of variation
 
 #RQA
 par = list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip") #set parameter
@@ -93,8 +93,6 @@ return(Results)
 ```
 
 3. 
-- Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
-3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
 
 ```{r}
 #MERGE articulation (acustic feature) with demographic data
@@ -105,7 +103,7 @@ demo_data = read.delim("DemoData.txt")
 #extract relevant info from string in subject
 articulation$Subject=substr(articulation$soundname, 8, 12)
 
-#set control to 0S and schizophrenia to 10
+#set control to 0S and schizophrenia to 10 in demo data
 demo_data$Diagnosis=revalue(demo_data$Diagnosis,c("Control"="0S","Schizophrenia"="1S"))
 
 #Make coloumn with values in diagnosis and values in subject next to each other
@@ -129,14 +127,43 @@ data_all$trial = substr(data_all$soundname, 14, 15) %>% as.numeric
 ```
 Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
 
+
+- Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
+
+
 ```{r}
 
 #models - what features
-Model_syll = lmer(nsyll ~ Diagnosis * trial + (1+trial|Subject), data = data_all)
-modelr::rmse(Model_syll, data_all)
+Model_syll = lmerTest::lmer(nsyll ~ Diagnosis * trial + (1+trial|Subject), data = data_all)
+summary(Model_syll)
+
+Model_pause = lmertes(npause ~ Diagnosis * trial + (1+trial|Subject), data = data_all)
+
+Model_dur = lmer.test(dur..s. ~ Diagnosis * trial + (1+trial|Subject), data = data_all)
+
+
+getmodel_information = function(mdl, n = NA){
+  temp_df = summary(mdl)$coefficients
+  temp_df = as.data.frame(temp_df)
+  temp_df = tibble::rownames_to_column(temp_df, "coef")
+  temp_df$R2m = r.squaredGLMM(mdl)[1]
+  temp_df$R2c = r.squaredGLMM(mdl)[2]
+  temp_df$n = n
+  return(temp_df)
+}
+
+Model_syll_results = getmodel_information(Model_syll)
+
+```
+
+3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
+
+```{r}
+
 
 
 ```
+
 4. Bonus Question: Compare effect size of diagnosis across the different measures. Which measure seems most sensitive?
 - Tip: to compare across measures you need to put all of them on the same scale, that is, you need to "standardize" them (z-score)
 
