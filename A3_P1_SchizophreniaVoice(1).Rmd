@@ -8,7 +8,7 @@ output: html_document
 ```{r}
 knitr::opts_chunk$set(echo = TRUE)
 wd = setwd("C:/Users/annaa/OneDrive/3. semester/Exp. Method 3/Practical/Assignment4/Assignment4")
-library(tseriesChaos);library(nonlinearTseries);library(SparseM);library(crqa);library(plyr);library(lme4)
+library(tseriesChaos);library(nonlinearTseries);library(SparseM);library(crqa);library(plyr);library(lme4);library(modelr)
 
 ```
 
@@ -92,11 +92,12 @@ return(Results)
 
 ```
 
-3. Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
+3. 
 - Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
 3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
 
 ```{r}
+#MERGE articulation (acustic feature) with demographic data
 #read data
 articulation = read.csv("Articulation.txt")
 demo_data = read.delim("DemoData.txt")
@@ -120,6 +121,20 @@ demo_data$Subject = demo_data$paste
 data_all = merge(demo_data, articulation, by = "Subject")
 
 data_all$Diagnosis=revalue(data_all$Diagnosis,c("0S"="Control","1S"="Schizophrenia"))
+
+#make a trial coloumn
+data_all$trial = substr(data_all$soundname, 14, 15) %>% as.numeric
+
+
+```
+Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
+
+```{r}
+
+#models - what features
+Model_syll = lmer(nsyll ~ Diagnosis * trial + (1+trial|Subject), data = data_all)
+modelr::rmse(Model_syll, data_all)
+
 
 ```
 4. Bonus Question: Compare effect size of diagnosis across the different measures. Which measure seems most sensitive?
