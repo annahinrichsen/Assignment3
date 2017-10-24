@@ -64,35 +64,111 @@ image(RP, xlab = "", ylab = "", col = cols)
 
 ```{r}
 
-FILES = list.files(path = wd, pattern = "^Study4", recursive = TRUE)
+# make a list of the files that we are running through
+files <- list.files(path = wd, pattern = "Study4", recursive = TRUE)
+files
 
+# make empty list for all the information of interest
+Subject <- NULL
+study <-  NULL
+trial <-  NULL
+diagnosis <-  NULL
+PR = NULL
+DET <- NULL
+NRLINE <- NULL
+maxL <- NULL
+L <- NULL
+ENTR <- NULL
+LAM <- NULL
+TT <- NULL
+mean <- NULL
+sd <- NULL
+range <- NULL
+median <- NULL
+IQR = NULL
+mad = NULL
+coef_var = NULL
 
-n=1 
-for (i in FILES)
-  {
+# for every loop n will be increased by 1 so that we can distinguish between each file
+n = 1
+
+# for loop to run through each file in the list (files) we have already created above
+for (file in files) {
   
-file = read.delim(i)
-
-
-par = try(list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip")) #set parameter
-
-ans = try(optimizeParam(file$f0,file$f0, par,min.rec = 3.5, max.rec = 4.5))
-
-
-Results = try(crqa(file$f0, file$f0, delay=35, embed = 3, radius = 5.72, normalize = 0, rescale = 0, mindiagline = 2, minvertline = 2))
-
-return(Results)
-  n=n+1 #next time you run the loop - it will be second time and next third, and so on
+  # read the file into a data frame to be used in the loop
+  df = read.delim(file)
+  
+  # create the values to be put in each of the empty lists that we created above
+  Subject[n] <-  substr(file, 14, 18)
+  study[n] <-  substr(file, 7, 12)
+  trial[n] <- sub("_", "", substr(file, 20, 21))
+  diagnosis[n] <-  substr(file, 14, 14)
+  mean[n] <- mean(df$f0)
+  sd[n] <- sd(df$f0)
+  range[n] <- range(df$f0)
+  median[n] <- median(df$f0)
+  IQR[n] <- IQR(df$f0)
+  mad[n] <- mad(df$f0,center = mean(df$f0))
+  coef_var[n] <- sd(df$f0)/mean(df$f0)*100
+  
+  # set parameterlist and optimize them
+  par = list(lgM =  50, steps = seq(1, 6, 1),  radiusspan = 100,  radiussample = 40, normalize = 0,  rescale = 0,  mindiagline = 2,  minvertline = 2,  tw = 0,  whiteline = FALSE,  recpt = FALSE,  fnnpercent = 10,  typeami = "mindip")
+  
+  parameters <- try(optimizeParam(df$f0, df$f0, par, min.rec = 3.5, max.rec = 4.5))
+  
+  
+  # this if/else statement assures that we the files that does not fit the parameters are still considered in the final lists 
+  if (length(parameters) > 1) {
+  
+  results1 <- crqa(df$f0, df$f0, delay = parameters$delay, embed = parameters$emddim, radius = parameters$radius, normalize = 0, rescale = 0, mindiagline = 2, minvertline = 2)
+  
+  PR[n] = results1$RR
+  DET[n] <- results1$DET
+  NRLINE[n] <- results1$NRLINE
+  maxL[n] <- results1$maxL
+  L[n] <- results1$L
+  ENTR[n] <- results1$ENTR
+  LAM[n] <- results1$LAM
+  TT[n] <- results1$TT
+  
+  
+  }
+  
+  else {
+  
+  PR[n] = NA
+  DET[n] <- NA
+  NRLINE[n] <- NA
+  maxL[n] <- NA
+  L[n] <- NA
+  ENTR[n] <- NA
+  LAM[n] <- NA
+  TT[n] <- NA
+  
+  }
+  
+#increase n by 1 to index into the next value in the lists
+  n = n + 1
   
 }
 
+#safe it all in data frame
+all_data_df_test <-  data.frame(Subject, study, trial, diagnosis, PR, DET, NRLINE, maxL, L, ENTR, LAM, TT, mean, sd, range, median)
 
+#write a file for study 4 
+write.csv(all_data_df_test, file = "dfstudy4")
 
+#load the other studies 
+study1 = read.csv("dfstudy1")
+study2 = read.csv("dfstudy2")
+study4 = read.csv("dfstudy4")
 
+#merge the studies together 
+recurrence_data = rbind(study1,study2,study4)
 
 ```
 
-3. 
+##3. 
 
 ```{r}
 #MERGE articulation (acustic feature) with demographic data
