@@ -8,7 +8,7 @@ output: html_document
 ```{r}
 knitr::opts_chunk$set(echo = FALSE)
 wd = setwd("C:/Users/annaa/OneDrive/3. semester/Exp. Method 3/Practical/Assignment4/Assignment4")
-library(tseriesChaos);library(nonlinearTseries);library(SparseM);library(crqa);library(plyr);library(lme4);library(modelr);library(tibble);library(MuMIn):library(lmerTest)
+library(tseriesChaos);library(nonlinearTseries);library(SparseM);library(crqa);library(plyr);library(lme4);library(modelr);library(tibble);library(MuMIn);library(stringr)
 
 
 ```
@@ -167,10 +167,88 @@ study4 = read.csv("dfstudy4")
 
 #merge the studies together 
 recurrence_data = rbind(study1,study2,study4)
+recurrence_data$Subject = substr(recurrence_data$Subject,3,5)
 
 ```
 
 ##3. 
+
+
+Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
+
+
+- Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
+
+
+```{r}
+
+#models - whith acustic features features RQA
+
+Model_range = lmerTest::lmer(PR ~ diagnosis + trial + (1+trial|study) + (1 + diagnosis + trial|Subject), data =recurrence_data)
+Model_DET = lmerTest::lmer(DET ~ diagnosis + trial + (1+trial|study)+ (1 + diagnosis + trial|Subject), data =recurrence_data)
+Model_NRLINE = lmerTest::lmer(NRLINE ~ diagnosis + trial + (1+trial|study)+ (1 + diagnosis + trial|Subject), data =recurrence_data)
+Model_maxL = lmerTest::lmer(maxL ~ diagnosis + trial + (1+trial|study)+ (1 + diagnosis + trial|Subject), data =recurrence_data)
+Model_L = lmerTest::lmer(L ~ diagnosis + trial + (1+trial|study)+ (1 + diagnosis + trial|Subject), data =recurrence_data)
+Model_ENTR = lmerTest::lmer(ENTR ~ diagnosis + trial + (1+trial|study)+ (1 + diagnosis + trial|Subject), data =recurrence_data)
+Model_LAM = lmerTest::lmer(LAM ~ diagnosis + trial + (1+trial|study)+ (1 + diagnosis + trial|Subject), data =recurrence_data)
+Model_TT = lmerTest::lmer(TT ~ diagnosis + trial + (1+trial|study)+ (1 + diagnosis + trial|Subject), data =recurrence_data)
+
+#acustic features descriptive data
+Model_TT = lmerTest::lmer(mean ~ diagnosis + gender + trial + (1+trial|study)+ (1 + diagnosis + trial|Subject), data =recurrence_data)
+
+#we can also use study as a random effect - cause researchers that run experiments do it diffenretly 
+#If we didn't change the ID to be unique for controls and schitophrenic - we could have ut a random effect of = (1+Diagnosis+trial|Subject) - effect of diagnosis might vary across participant 
+
+
+getmodel_information = function(mdl, n){
+  temp_df = summary(mdl)$coefficients
+  temp_df = as.data.frame(temp_df)
+  temp_df = tibble::rownames_to_column(temp_df, "coef")
+  temp_df$R2m = r.squaredGLMM(mdl)[1]
+  temp_df$R2c = r.squaredGLMM(mdl)[2]
+  temp_df$n = n
+  return(temp_df)
+}
+
+Model_results_range = getmodel_information(Model_range, n = 1)
+Model_results_DET = getmodel_information(Model_DET, n = 2)
+#Model_results_NRLINE = getmodel_information(Model_NRLINE, n = 3)
+Model_results_maxL = getmodel_information(Model_maxL, n = 4)
+Model_results_L = getmodel_information(Model_L, n = 5)
+Model_results_ENTR = getmodel_information(Model_ENTR, n = 6)
+Model_results_LAM = getmodel_information(Model_LAM, n = 7)
+Model_results_TT = getmodel_information(Model_TT, n = 8)
+
+
+
+sejtdataframe = rbind(Model_results_range,Model_results_DET, Model_results_maxL, Model_results_L, Model_results_ENTR, Model_results_LAM, Model_results_TT)
+
+```
+
+3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
+
+```{r}
+
+
+
+```
+
+4. Bonus Question: Compare effect size of diagnosis across the different measures. Which measure seems most sensitive?
+- Tip: to compare across measures you need to put all of them on the same scale, that is, you need to "standardize" them (z-score)
+
+```{r}
+
+
+```
+
+5. Bonus question. In the Clinical Info file you have additional information about the participants. Which additional parameters (e.g. age, gender) should we control for? Report the effects.
+
+6. Write a paragraph reporting methods and results
+
+[Next assignment: can we use these measures to build a tool that diagnoses people from voice only?]
+
+## N.B. Remember to save the acoustic features of voice in a separate file, so to be able to load them next time
+
 
 ```{r}
 #MERGE articulation (acustic feature) with demographic data
@@ -203,60 +281,3 @@ data_all$trial = substr(data_all$soundname, 14, 15) %>% as.numeric
 
 
 ```
-Make one model per acoustic feature and test whether you can observe significant difference due to Diagnosis. Tip: Which other fixed factors should you control for (that is, include in the model)? Which random ones?
-
-
-- Bonus points: cross-validate the model and report the betas and standard errors from all rounds to get an idea of how robust the estimates are. 
-
-
-```{r}
-
-#models - what features
-Model_syll = lmerTest::lmer(nsyll ~ Diagnosis * trial + (1+trial|Subject), data = data_all)
-summary(Model_syll)
-
-Model_pause = lmerTest::lmer(npause ~ Diagnosis * trial + (1+trial|Subject), data = data_all)
-
-Model_dur = lmerTest::lmer(dur..s. ~ Diagnosis * trial + (1+trial|Subject), data = data_all)
-
-Model_range = lmer(PR ~ Diagnosis + (1|Study)) #we can also use study as a random effect - cause researchers that run experiments do it diffenretly 
-#If we didn't change the ID to be unique for controls and schitophrenic - we could have ut a random effect of = (1+Diagnosis+trial|Subject) - effect of diagnosis might vary across participant 
-
-
-getmodel_information = function(mdl, n = NA){
-  temp_df = summary(mdl)$coefficients
-  temp_df = as.data.frame(temp_df)
-  temp_df = tibble::rownames_to_column(temp_df, "coef")
-  temp_df$R2m = r.squaredGLMM(mdl)[1]
-  temp_df$R2c = r.squaredGLMM(mdl)[2]
-  temp_df$n = n
-  return(temp_df)
-}
-
-Model_syll_results = getmodel_information(Model_syll)
-
-```
-
-3a. Is study a significant predictor in these models? What should you infer from this? Does study interact with diagnosis? What should you infer from this?
-
-```{r}
-
-
-
-```
-
-4. Bonus Question: Compare effect size of diagnosis across the different measures. Which measure seems most sensitive?
-- Tip: to compare across measures you need to put all of them on the same scale, that is, you need to "standardize" them (z-score)
-
-```{r}
-
-
-```
-
-5. Bonus question. In the Clinical Info file you have additional information about the participants. Which additional parameters (e.g. age, gender) should we control for? Report the effects.
-
-6. Write a paragraph reporting methods and results
-
-[Next assignment: can we use these measures to build a tool that diagnoses people from voice only?]
-
-## N.B. Remember to save the acoustic features of voice in a separate file, so to be able to load them next time
