@@ -6,9 +6,10 @@ output: html_document
 ---
 
 ```{r}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 wd = setwd("C:/Users/annaa/OneDrive/3. semester/Exp. Method 3/Practical/Assignment4/Assignment4")
 library(tseriesChaos);library(nonlinearTseries);library(SparseM);library(crqa);library(plyr);library(lme4);library(modelr);library(tibble);library(MuMIn):library(lmerTest)
+
 
 ```
 
@@ -49,6 +50,7 @@ ans = optimizeParam(Pitch_file$f0,Pitch_file$f0, par,min.rec = 3.5, max.rec = 4.
 ans
 
 Results = crqa(Pitch_file$f0, Pitch_file$f0, delay=35, embed = 3, radius = 5.72, normalize = 0, rescale = 0, mindiagline = 2, minvertline = 2)
+
 
 #Recurrence plot
 RP=Results$RP
@@ -213,9 +215,12 @@ Make one model per acoustic feature and test whether you can observe significant
 Model_syll = lmerTest::lmer(nsyll ~ Diagnosis * trial + (1+trial|Subject), data = data_all)
 summary(Model_syll)
 
-Model_pause = lmertes(npause ~ Diagnosis * trial + (1+trial|Subject), data = data_all)
+Model_pause = lmerTest::lmer(npause ~ Diagnosis * trial + (1+trial|Subject), data = data_all)
 
-Model_dur = lmer.test(dur..s. ~ Diagnosis * trial + (1+trial|Subject), data = data_all)
+Model_dur = lmerTest::lmer(dur..s. ~ Diagnosis * trial + (1+trial|Subject), data = data_all)
+
+Model_range = lmer(PR ~ Diagnosis + (1|Study)) #we can also use study as a random effect - cause researchers that run experiments do it diffenretly 
+#If we didn't change the ID to be unique for controls and schitophrenic - we could have ut a random effect of = (1+Diagnosis+trial|Subject) - effect of diagnosis might vary across participant 
 
 
 getmodel_information = function(mdl, n = NA){
