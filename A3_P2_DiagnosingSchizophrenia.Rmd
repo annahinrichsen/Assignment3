@@ -6,7 +6,10 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
+
+wd = setwd("C:/Users/annaa/OneDrive/3. semester/Exp. Method 3/Practical/Assignment4/Assignment4")
+library(tseriesChaos);library(nonlinearTseries);library(SparseM);library(crqa);library(lme4);library(modelr);library(tibble);library(MuMIn);library(stringr);library(dplyr);library(caret);library(Metrics)
 ```
 
 ## Assignment 3 - Diagnosing schizophrenia from voice
@@ -19,7 +22,62 @@ Build a logistic regression to see whether you can diagnose schizophrenia from p
 
 Calculate the different performance measures (accuracy, sensitivity, specificity, PPV, NPV, ROC curve) on a logistic regression using the full dataset. Don't forget the random effects!
 
+```{r}
+df_features = read.csv("df_final")
+df_features$X.1 = NULL
+df_features$X = NULL
+df_features$Subject = substr(df_features$Subject,3,5)
+
+#simple model
+log_model_range = glm(diagnosis~ range, data = df_features, family = "binomial")
+summary(log_model_range)
+
+
+log_model_range2 = glmer(diagnosis~ range + (1+trial|Subject), data = df_features, family = "binomial")
+
+df_features$PredictionsPerc = predict(log_model_range2)
+df_features$Predictions[df_features$PredictionsPerc>0.5]="1"
+df_features$Predictions[df_features$PredictionsPerc<=0.5]="0"
+
+confusionMatrix(data = df_features$Predictions, reference = df_features$diagnosis, positive = "0")
+
+
+
+```
+
 Then cross-validate the logistic regression and re-calculate performance on the testing folds. N.B. The cross-validation functions you already have should be tweaked: you need to calculate these new performance measures.
+
+```{r}
+
+#Cross validation
+
+folds = createFolds(unique(df_features$Subject),k=5)
+n=1 
+error.train=NULL
+error.test=NULL
+
+
+for (i in folds)
+  {
+  testD=df_features[df_features$Subject %in% i,]
+  trainD=df_features[!(df_features$Subject %in% i),]
+  Mtrain = glmer(diagnosis~ range + (1+trial|Subject), data = df_features, family = "binomial")
+  pred = predict(Mtrain,testD, allow.new.levels =TRUE)
+  error.train[n]=modelr::rmse(Mtrain,trainD)
+  error.test[n]=Metrics::rmse(testD$diagnosis,pred)
+  
+  #error.trains = c(error.trains,error.train[n])
+  #error.tests = c(error.tests, error.test[n])
+
+  n=n+1 #next time you run the loop - it will be second time and next third, and so on
+  
+}
+
+error.test
+error.train
+
+
+```
 
 N.B. the predict() function generates probabilities (the full scale between 0 and 1). A probability > .5 indicates a choice of 1, below a choice of 0.
 N.B. you need to decide whether calculate performance on each single test fold or save all the prediction for test folds in one datase, so to calculate overall performance.
