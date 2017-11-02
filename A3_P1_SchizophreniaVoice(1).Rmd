@@ -200,10 +200,8 @@ Model_TT = lmerTest::lmer(TT ~ diagnosis + trial + (1+trial|study)+ (1 + diagnos
 summary(Model_DET)
 
 #acustic features descriptive data
-demo_data$Subject = substr(demo_data$Subject,3,5)
-Gender_df = select(demo_data, 2,4)
+recurrence_data2 = merge(recurrence_data, demo_data, all = TRUE) 
 
-Model_TT = lmerTest::lmer(mean ~ diagnosis + gender + trial + (1+trial|study)+ (1 + diagnosis + trial|Subject), data =recurrence_data)
 
 #we can also use study as a random effect - cause researchers that run experiments do it diffenretly 
 #If we didn't change the ID to be unique for controls and schitophrenic - we could have ut a random effect of = (1+Diagnosis+trial|Subject) - effect of diagnosis might vary across participant 
@@ -230,7 +228,7 @@ Model_results_TT = getmodel_information(Model_TT, n = 8)
 
 
 
-sejtdataframe = rbind(Model_results_range,Model_results_DET, Model_results_maxL, Model_results_L, Model_results_ENTR, Model_results_LAM, Model_results_TT)f
+sejtdataframe = rbind(Model_results_range,Model_results_DET, Model_results_maxL, Model_results_L, Model_results_ENTR, Model_results_LAM, Model_results_TT)
 
 ```
 
@@ -241,17 +239,28 @@ Is study a significant predictor in these models? What should you infer from thi
 
 
 ```{r}
-Model_range2 = lmerTest::lmer(PR ~ diagnosis + trial + study + (1+trial|study) + (1 + diagnosis + trial|Subject), data =recurrence_data)
-Model_DET2 = lmerTest::lmer(DET ~ diagnosis + trial + study + (1+trial|study)+ (1 + diagnosis + trial|Subject), data =recurrence_data)
-Model_NRLINE2 = lmerTest::lmer(NRLINE ~ diagnosis + trial + study + (1+trial|study)+ (1 + diagnosis + trial|Subject), data =recurrence_data)
-Model_maxL2 = lmerTest::lmer(maxL ~ diagnosis + trial + study + (1+trial|study)+ (1 + diagnosis + trial|Subject), data =recurrence_data)
-Model_L2 = lmerTest::lmer(L ~ diagnosis + trial + study + (1+trial|study)+ (1 + diagnosis + trial|Subject), data =recurrence_data)
-Model_ENTR2 = lmerTest::lmer(ENTR ~ diagnosis + trial + study + (1+trial|study)+ (1 + diagnosis + trial|Subject), data =recurrence_data)
-Model_LAM2 = lmerTest::lmer(LAM ~ diagnosis + trial + study + (1+trial|study)+ (1 + diagnosis + trial|Subject), data =recurrence_data)
-Model_TT2 = lmerTest::lmer(TT ~ diagnosis + trial + study (1+trial|study)+ (1 + diagnosis + trial|Subject), data =recurrence_data)
+#interaction study*diagnosis
+Model_range2 = lmerTest::lmer(PR ~ study*diagnosis + trial + (1+trial|study), data =recurrence_data)
+Model_DET2 = lmerTest::lmer(DET ~ study*diagnosis + trial +(1+trial|study), data =recurrence_data)
+Model_NRLINE2 = lmerTest::lmer(NRLINE ~ study*diagnosis + trial + (1+trial|study), data =recurrence_data)
+Model_maxL2 = lmerTest::lmer(maxL ~ study*diagnosis + trial + (1+trial|study), data =recurrence_data)
+Model_L2 = lmerTest::lmer(L ~ study*diagnosis + trial + (1+trial|study), data =recurrence_data)
+Model_ENTR2 = lmerTest::lmer(ENTR ~ study*diagnosis + trial + (1+trial|study), data =recurrence_data)
+Model_LAM2 = lmerTest::lmer(LAM ~ study*diagnosis + trial + (1+trial|study), data =recurrence_data)
+Model_TT2 = lmerTest::lmer(TT ~ study*diagnosis + trial + (1+trial|study), data =recurrence_data)
 
-anova(Model_range,Model_range2)
+#model results
+Model_results_range2 = getmodel_information(Model_range2, n = 1)
+Model_results_DET2 = getmodel_information(Model_DET2, n = 2)
+Model_results_NRLINE2 = getmodel_information(Model_NRLINE2, n = 3)
+Model_results_maxL2 = getmodel_information(Model_maxL2, n = 4)
+Model_results_L2 = getmodel_information(Model_L2, n = 5)
+Model_results_ENTR2 = getmodel_information(Model_ENTR2, n = 6)
+Model_results_LAM2 = getmodel_information(Model_LAM2, n = 7)
+Model_results_TT2 = getmodel_information(Model_TT2, n = 8)
 
+#combine in one dataframe
+interaction_dataframe = rbind(Model_results_range2,Model_results_DET2, Model_results_L2, Model_results_LAM2, Model_results_TT2)
 
 ```
 
@@ -273,33 +282,7 @@ anova(Model_range,Model_range2)
 
 
 ```{r}
-#MERGE articulation (acustic feature) with demographic data
-#read data
-articulation = read.csv("Articulation.txt")
-demo_data = read.delim("DemoData.txt")
 
-#extract relevant info from string in subject
-articulation$Subject=substr(articulation$soundname, 8, 12)
-
-#set control to 0S and schizophrenia to 10 in demo data
-demo_data$Diagnosis=revalue(demo_data$Diagnosis,c("Control"="0S","Schizophrenia"="1S"))
-
-#Make coloumn with values in diagnosis and values in subject next to each other
-demo_data$paste = paste(demo_data$Diagnosis,demo_data$Subject)
-
-#delete the space 
-demo_data$paste = sub(" ", "", demo_data$paste)                             
-
-#call the "paste coloumn" "Subject"(the same as in articulation)
-demo_data$Subject = demo_data$paste
-                     
-#merge demo_data and articulation data                           
-data_all = merge(demo_data, articulation, by = "Subject")
-
-data_all$Diagnosis=revalue(data_all$Diagnosis,c("0S"="Control","1S"="Schizophrenia"))
-
-#make a trial coloumn
-data_all$trial = substr(data_all$soundname, 14, 15) %>% as.numeric
 
 
 ```
