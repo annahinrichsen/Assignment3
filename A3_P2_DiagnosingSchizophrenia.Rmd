@@ -9,7 +9,8 @@ output: html_document
 knitr::opts_chunk$set(echo = FALSE)
 
 wd = setwd("C:/Users/annaa/OneDrive/3. semester/Exp. Method 3/Practical/Assignment4/Assignment4")
-library(tseriesChaos);library(nonlinearTseries);library(SparseM);library(crqa);library(lme4);library(modelr);library(tibble);library(MuMIn);library(stringr);library(dplyr);library(caret);library(Metrics)
+library(tseriesChaos);library(nonlinearTseries);library(SparseM);library(crqa);library(lme4);library(modelr);library(tibble);library(MuMIn);library(stringr);library(dplyr);library(caret);library(Metrics);library(pROC)
+
 ```
 
 ## Assignment 3 - Diagnosing schizophrenia from voice
@@ -32,16 +33,23 @@ df_features$X = NULL
 df_features$Subject = substr(df_features$Subject,3,5)
 
 #model with random effects
-log_model_range2 = glmer(diagnosis~ range + (1+trial|Subject), data = df_features, family = "binomial")
+log_model_range2 = glmer(diagnosis~ range + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
 
-df_features$PredictionsPerc = predict(log_model_range2)
-df_features$Predictions[df_features$PredictionsPerc>0.5]="1"
-df_features$Predictions[df_features$PredictionsPerc<=0.5]="0"
+
+df_features$Predictionslogodds = predict(log_model_range2)
+df_features$Predictions[df_features$Predictionslogodds>0]="1"
+df_features$Predictions[df_features$Predictionslogodds<=0]="0"
 
 #calculate performance measures using full data set
 confusionMatrix(data = df_features$Predictions, reference = df_features$diagnosis, positive = "0")
 
+#rocCurve to calculate performance
+rocCurve <- roc(response = df_features$diagnosis, predictor = df_features$Predictionslogodds)
 
+auc(rocCurve)
+#fair auc: 7.78
+ci(rocCurve)
+plot(rocCurve, legacy.axes = TRUE)
 
 ```
 
@@ -54,59 +62,205 @@ N.B. Now you have two levels of structure: subject and study. Should this impact
 ```{r}
 
 #Cross validation
+df_features$Subject = as.factor(df_features$Subject)
+df_features$Subject = as.numeric(df_features$Subject)
+
+
+#Maybe use CVMS, allows you to have a list of models
+#Cross validation
 
 folds = createFolds(unique(df_features$Subject),k=5)
-n=1 
-Performance_measures = NULL
+
+n=1
+
+train_accuracy=NULL
+train_sen = NULL
+train_spec = NULL
+train_npv = NULL
+train_ppv = NULL
+train_auc=NULL
+train_ciLower=NULL
+train_ciHigher=NULL
+
+test_accuracy=NULL
+test_sen = NULL
+test_spec = NULL
+test_npv = NULL
+test_ppv = NULL
+test_auc=NULL
+test_ciLower=NULL
+test_ciHigher=NULL
 
 
 for (i in folds)
   {
-  testD=df_features[df_features$trial %in% i,]
-  trainD=df_features[!(df_features$trial %in% i),]
-  Mtrain = glmer(diagnosis~ range + (1+trial|Subject), data = df_features, family = "binomial")
-  #Performance_measures =
+  testD=df_features[df_features$Subject %in% i,]
+  trainD=df_features[!(df_features$Subject %in% i),]
+  Mtrain = lme4::glmer(diagnosis~range + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+  
+trainD$Predictionslogodds = predict(Mtrain,trainD,allow.new.levels=TRUE)
+trainD$Predictions[trainD$Predictionslogodds>0] = "1"
+trainD$Predictions[trainD$Predictionslogodds<0] = "0"
+train_matrix = confusionMatrix(data = trainD$Predictions,reference = trainD$diagnosis, positive = "0")
 
+train_accuracy[n]=train_matrix$overall[1]
+train_sen[n]=train_matrix$byClass[1]
+train_spec[n]=train_matrix$byClass[2]
+train_ppv[n]=train_matrix$byClass[3]
+train_npv[n]=train_matrix$byClass[4]
 
-  n=n+1 #next time you run the loop - it will be second time and next third, and so on
+testD$Predictionslogodds = predict(Mtrain,testD,allow.new.levels=TRUE)
+testD$Predictions[testD$Predictionslogodds>0] = "1"
+testD$Predictions[testD$Predictionslogodds<0] = "0"
+test_matrix = confusionMatrix(data = testD$Predictions,reference = testD$diagnosis, positive = "0")
+
+test_accuracy[n]=train_matrix$overall[1]
+test_sen[n]=test_matrix$byClass[1]
+test_spec[n]=test_matrix$byClass[2]
+test_ppv[n]=test_matrix$byClass[3]
+test_npv[n]=test_matrix$byClass[4]
+
+train_RocCurve=roc(response=trainD$diagnosis,predictor = trainD$Predictionslogodds)
+train_auc[n]=train_RocCurve$auc
+train_ciLower[n]=ci(train_RocCurve)[1]
+train_ciHigher[n]=ci(train_RocCurve)[2]
+
+test_RocCurve=roc(response=testD$diagnosis,predictor = testD$Predictionslogodds)
+test_auc[n]=test_RocCurve$auc
+test_ciLower[n]=ci(test_RocCurve)[1]
+test_ciHigher[n]=ci(test_RocCurve)[2]
+
+  n=n+1
   
 }
+traindf = data.frame(train_accuracy,train_sen,train_spec,train_npv,train_ppv,train_auc,train_ciLower,train_ciHigher)
 
-Performance_measures
+testdf = data.frame(test_accuracy,test_sen,test_spec,test_npv,test_ppv,test_auc,test_ciLower,test_ciHigher)
 
-#use RocCurve() for performance of the logistic regression 
 
-#AUC = area under the curve
 
 
 ```
 
 
+### Question 2 - Which single acoustic predictor is the best predictor of diagnosis?
 
-### Question 2
 
-Which single predictor is the best predictor of diagnosis?
+```{r}
 
-### Question 3
+#i = predictor, x = data, 
+
+cvalid = function(i, p){
+
+test_accuracy=NULL
+test_sen = NULL
+test_spec = NULL
+test_npv = NULL
+test_ppv = NULL
+test_auc=NULL
+test_ciLower=NULL
+test_ciHigher=NULL
+
+n=1
+
+for (fold in folds)
+  {
+  testD=df_features[df_features$Subject %in% fold,]
+  trainD=df_features[!(df_features$Subject %in% fold),]
+  Mtrain = i
+
+testD$Predictionslogodds = predict(Mtrain,testD, allow.new.levels=TRUE)
+testD$Predictions[testD$Predictionslogodds>0] = "1"
+testD$Predictions[testD$Predictionslogodds<0] = "0"
+test_matrix = confusionMatrix(data = testD$Predictions,reference = testD$diagnosis, positive = "0")
+
+test_accuracy[n]=test_matrix$overall[1]
+test_sen[n]=test_matrix$byClass[1]
+test_spec[n]=test_matrix$byClass[2]
+test_ppv[n]=test_matrix$byClass[3]
+test_npv[n]=test_matrix$byClass[4]
+
+test_RocCurve=roc(response=testD$diagnosis,predictor = testD$Predictionslogodds)
+test_auc[n]=test_RocCurve$auc
+test_ciLower[n]=ci(test_RocCurve)[1]
+test_ciHigher[n]=ci(test_RocCurve)[2]
+
+  n=n+1
+  
+}
+testdf = data.frame(mean(test_accuracy),mean(test_sen),mean(test_spec),mean(test_npv),mean(test_ppv),mean(test_auc),mean(test_ciLower),mean(test_ciHigher))
+
+return(testdf)
+}
+
+#make models with different predictors
+log_model_sd = glmer(diagnosis~ sd + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_PR = glmer(diagnosis~ PR + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_DET = glmer(diagnosis~ DET + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_NRLINE = glmer(diagnosis~ NRLINE + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_maxL = glmer(diagnosis~ maxL + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_L = glmer(diagnosis~ L + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_ENTR = glmer(diagnosis~ LAM + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_TT = glmer(diagnosis~ TT + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_mean = glmer(diagnosis~ mean + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_range = glmer(diagnosis~ range + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_median = glmer(diagnosis~ median + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+
+a = cvalid(log_model_sd)
+a$predictor = "sd"
+
+b = cvalid(log_model_PR)
+b$predictor = "PR"
+
+c = cvalid(log_model_DET)
+c$predictor = "DET"
+
+d = cvalid(log_model_NRLINE)
+d$predictor = "NRLINE"
+
+e = cvalid(log_model_maxL)
+e$predictor = "maxL"
+
+f = cvalid(log_model_L)
+f$predictor = "L"
+
+g = cvalid(log_model_ENTR)
+g$predictor = "ENTR"
+
+h = cvalid(log_model_TT)
+h$predictor = "TT"
+
+i = cvalid(log_model_mean)
+i$predictor = "mean"
+
+j = cvalid(log_model_range)
+j$predictor = "range"
+
+
+hej = rbind(a,b,c,d,e,f,g,h,i,j)
+
+```
+
+
+### Question 3 - Which combination of acoustic predictors is best for diagnosing schizophrenia?
 
 Now it's time to go wild! Use all (voice-related) variables and interactions you can think of. Compare models and select the best performing model you can find.
 
 Remember:
-- Cross-validation or AIC are crucial to build the best model!
-- After choosing the model, train it on all the data you have
-- Save the model: save(modelName, file = "BestModelForever.rda")
-- Create a Markdown that can: a) extract the features from new pitch files (basically your previous markdown), b) load your model (e.g. load("BestModelForever.rda")), and c) predict the diagnosis in the new dataframe.
-Send it to Celine and Riccardo by Monday (so they'll have time to run it before class)-
+- Out-of-sample error crucial to build the best model!
+- After choosing the model, send Celine and Riccardo the code of your model
 
-### Question 4: Report the results
+```{r}
 
-METHODS SECTION: how did you analyse the data?
+
+
+```
+
+### Question 4: Properly report the results
+
+METHODS SECTION: how did you analyse the data? That is, how did you extract the data, designed the models and compared their performance?
 
 RESULTS SECTION: can you diagnose schizophrenia based on voice? which features are used? Comment on the difference between the different performance measures.
-
-how did we extract acustic features 
-what model, how it performs, comment on sensitivity, specificity etc
-the acustic features: are simple methods better or??
 
 ### Bonus question 5
 
