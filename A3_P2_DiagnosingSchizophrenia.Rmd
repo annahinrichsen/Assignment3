@@ -17,28 +17,28 @@ library(tseriesChaos);library(nonlinearTseries);library(SparseM);library(crqa);l
 In the previous part of the assignment you generated a bunch of "features", that is, of quantitative descriptors of voice in schizophrenia, focusing on pitch.
 In the course of this assignment we will use them to try to automatically diagnose schizophrenia from voice only, that is, relying on the set of features you produced last time, we will try to produce an automated classifier.
 
-### Question 1
+
+### Question 1: Can you diagnose schizophrenia from pitch range only? If so, how well?
+
 Build a logistic regression to see whether you can diagnose schizophrenia from pitch range only.
 
 Calculate the different performance measures (accuracy, sensitivity, specificity, PPV, NPV, ROC curve) on a logistic regression using the full dataset. Don't forget the random effects!
 
 ```{r}
+#load data and clean up a bit
 df_features = read.csv("df_final")
 df_features$X.1 = NULL
 df_features$X = NULL
 df_features$Subject = substr(df_features$Subject,3,5)
 
-#simple model
-log_model_range = glm(diagnosis~ range, data = df_features, family = "binomial")
-summary(log_model_range)
-
-
+#model with random effects
 log_model_range2 = glmer(diagnosis~ range + (1+trial|Subject), data = df_features, family = "binomial")
 
 df_features$PredictionsPerc = predict(log_model_range2)
 df_features$Predictions[df_features$PredictionsPerc>0.5]="1"
 df_features$Predictions[df_features$PredictionsPerc<=0.5]="0"
 
+#calculate performance measures using full data set
 confusionMatrix(data = df_features$Predictions, reference = df_features$diagnosis, positive = "0")
 
 
@@ -47,41 +47,41 @@ confusionMatrix(data = df_features$Predictions, reference = df_features$diagnosi
 
 Then cross-validate the logistic regression and re-calculate performance on the testing folds. N.B. The cross-validation functions you already have should be tweaked: you need to calculate these new performance measures.
 
+N.B. the predict() function generates log odds (the full scale between minus and plus infinity). Log odds > 0 indicates a choice of 1, below a choice of 0.
+N.B. you need to decide whether calculate performance on each single test fold or save all the prediction for test folds in one datase, so to calculate overall performance.
+N.B. Now you have two levels of structure: subject and study. Should this impact your cross-validation?
+
 ```{r}
 
 #Cross validation
 
 folds = createFolds(unique(df_features$Subject),k=5)
 n=1 
-error.train=NULL
-error.test=NULL
+Performance_measures = NULL
 
 
 for (i in folds)
   {
-  testD=df_features[df_features$Subject %in% i,]
-  trainD=df_features[!(df_features$Subject %in% i),]
+  testD=df_features[df_features$trial %in% i,]
+  trainD=df_features[!(df_features$trial %in% i),]
   Mtrain = glmer(diagnosis~ range + (1+trial|Subject), data = df_features, family = "binomial")
-  pred = predict(Mtrain,testD, allow.new.levels =TRUE)
-  error.train[n]=modelr::rmse(Mtrain,trainD)
-  error.test[n]=Metrics::rmse(testD$diagnosis,pred)
-  
-  #error.trains = c(error.trains,error.train[n])
-  #error.tests = c(error.tests, error.test[n])
+  #Performance_measures =
+
 
   n=n+1 #next time you run the loop - it will be second time and next third, and so on
   
 }
 
-error.test
-error.train
+Performance_measures
+
+#use RocCurve() for performance of the logistic regression 
+
+#AUC = area under the curve
 
 
 ```
 
-N.B. the predict() function generates probabilities (the full scale between 0 and 1). A probability > .5 indicates a choice of 1, below a choice of 0.
-N.B. you need to decide whether calculate performance on each single test fold or save all the prediction for test folds in one datase, so to calculate overall performance.
-N.B. Now you have two levels of structure: subject and study. Should this impact your cross-validation?
+
 
 ### Question 2
 
@@ -103,6 +103,10 @@ Send it to Celine and Riccardo by Monday (so they'll have time to run it before 
 METHODS SECTION: how did you analyse the data?
 
 RESULTS SECTION: can you diagnose schizophrenia based on voice? which features are used? Comment on the difference between the different performance measures.
+
+how did we extract acustic features 
+what model, how it performs, comment on sensitivity, specificity etc
+the acustic features: are simple methods better or??
 
 ### Bonus question 5
 
