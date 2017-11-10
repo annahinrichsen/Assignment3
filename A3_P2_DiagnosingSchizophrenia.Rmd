@@ -206,6 +206,7 @@ log_model_mean = glmer(diagnosis~ mean + trial + (1+trial|Subject), data = df_fe
 log_model_range = glmer(diagnosis~ range + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
 log_model_median = glmer(diagnosis~ median + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
 
+#data frames for each predictor
 a = cvalid(log_model_sd)
 a$predictor = "sd"
 
@@ -236,8 +237,8 @@ i$predictor = "mean"
 j = cvalid(log_model_range)
 j$predictor = "range"
 
-
-hej = rbind(a,b,c,d,e,f,g,h,i,j)
+#data frame with performance measure auc for all the predictors
+all_predictorsdf = rbind(a,b,c,d,e,f,g,h,i,j)
 
 ```
 
