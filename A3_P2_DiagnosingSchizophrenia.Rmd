@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = FALSE)
 
 wd = setwd("C:/Users/annaa/OneDrive/3. semester/Exp. Method 3/Practical/Assignment4/Assignment4")
-library(tseriesChaos);library(nonlinearTseries);library(SparseM);library(crqa);library(lme4);library(modelr);library(tibble);library(MuMIn);library(stringr);library(dplyr);library(caret);library(Metrics);library(pROC)
+library(tseriesChaos);library(nonlinearTseries);library(SparseM);library(crqa);library(lme4);library(modelr);library(tibble);library(MuMIn);library(stringr);library(dplyr);library(caret);library(Metrics);library(pROC);library(groupdata2)
 
 ```
 
@@ -31,6 +31,19 @@ df_features = read.csv("df_final")
 df_features$X.1 = NULL
 df_features$X = NULL
 df_features$Subject = substr(df_features$Subject,3,5)
+
+#creating extra coloumn with subject names from 1 and up (istead of 101, 102 etc)
+df_features$Subject = as.factor(df_features$Subject)
+df_features$uniquesubject = as.numeric(df_features$Subject)
+
+numfolds = 5 #we want the loop to go through 5 times
+
+
+
+df_features = fold(df_features, k = 5, id_col = "uniquesubject")
+colnames(df_features)[18] = "folds"
+
+
 
 #model with random effects
 log_model_range2 = glmer(diagnosis~ range + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
@@ -62,25 +75,14 @@ N.B. Now you have two levels of structure: subject and study. Should this impact
 ```{r}
 
 #Cross validation
-df_features$Subject = as.factor(df_features$Subject)
-df_features$Subject = as.numeric(df_features$Subject)
 
 
 #Maybe use CVMS, allows you to have a list of models
 #Cross validation
 
-folds = createFolds(unique(df_features$Subject),k=5)
+
 
 n=1
-
-train_accuracy=NULL
-train_sen = NULL
-train_spec = NULL
-train_npv = NULL
-train_ppv = NULL
-train_auc=NULL
-train_ciLower=NULL
-train_ciHigher=NULL
 
 test_accuracy=NULL
 test_sen = NULL
@@ -91,39 +93,23 @@ test_auc=NULL
 test_ciLower=NULL
 test_ciHigher=NULL
 
-
-for (i in folds)
+for (i in seq(numfolds))
   {
-  testD=df_features[df_features$Subject %in% i,]
-  trainD=df_features[!(df_features$Subject %in% i),]
+  #testD = subset(testD, folds !=  i)
+  testD=df_features[df_features$folds %in% i,]
+  trainD=df_features[!(df_features$folds %in% i),]
   Mtrain = lme4::glmer(diagnosis~range + trial + (1+trial|Subject), family = "binomial", data = trainD, control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
-  
-trainD$Predictionslogodds = predict(Mtrain,trainD,allow.new.levels=TRUE)
-trainD$Predictions[trainD$Predictionslogodds>0] = "1"
-trainD$Predictions[trainD$Predictionslogodds<0] = "0"
-train_matrix = confusionMatrix(data = trainD$Predictions,reference = trainD$diagnosis, positive = "0")
-
-train_accuracy[n]=train_matrix$overall[1]
-train_sen[n]=train_matrix$byClass[1]
-train_spec[n]=train_matrix$byClass[2]
-train_ppv[n]=train_matrix$byClass[3]
-train_npv[n]=train_matrix$byClass[4]
 
 testD$Predictionslogodds = predict(Mtrain,testD,allow.new.levels=TRUE)
 testD$Predictions[testD$Predictionslogodds>0] = "1"
 testD$Predictions[testD$Predictionslogodds<0] = "0"
 test_matrix = confusionMatrix(data = testD$Predictions,reference = testD$diagnosis, positive = "0")
 
-test_accuracy[n]=train_matrix$overall[1]
+test_accuracy[n]=test_matrix$overall[1]
 test_sen[n]=test_matrix$byClass[1]
 test_spec[n]=test_matrix$byClass[2]
 test_ppv[n]=test_matrix$byClass[3]
 test_npv[n]=test_matrix$byClass[4]
-
-train_RocCurve=roc(response=trainD$diagnosis,predictor = trainD$Predictionslogodds)
-train_auc[n]=train_RocCurve$auc
-train_ciLower[n]=ci(train_RocCurve)[1]
-train_ciHigher[n]=ci(train_RocCurve)[2]
 
 test_RocCurve=roc(response=testD$diagnosis,predictor = testD$Predictionslogodds)
 test_auc[n]=test_RocCurve$auc
@@ -133,10 +119,8 @@ test_ciHigher[n]=ci(test_RocCurve)[2]
   n=n+1
   
 }
-traindf = data.frame(train_accuracy,train_sen,train_spec,train_npv,train_ppv,train_auc,train_ciLower,train_ciHigher)
 
 testdf = data.frame(test_accuracy,test_sen,test_spec,test_npv,test_ppv,test_auc,test_ciLower,test_ciHigher)
-
 
 
 
@@ -163,10 +147,10 @@ test_ciHigher=NULL
 
 n=1
 
-for (fold in folds)
+for (i in seq(numfolds))
   {
-  testD=df_features[df_features$Subject %in% fold,]
-  trainD=df_features[!(df_features$Subject %in% fold),]
+  testD=df_features[df_features$folds %in% fold,]
+  trainD=df_features[!(df_features$folds %in% fold),]
   Mtrain = i
 
 testD$Predictionslogodds = predict(Mtrain,testD, allow.new.levels=TRUE)
@@ -192,6 +176,9 @@ testdf = data.frame(mean(test_accuracy),mean(test_sen),mean(test_spec),mean(test
 
 return(testdf)
 }
+
+
+
 
 #make models with different predictors
 log_model_sd = glmer(diagnosis~ sd + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
