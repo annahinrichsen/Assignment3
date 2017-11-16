@@ -8,7 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
 
-wd = setwd("C:/Users/annaa/OneDrive/3. semester/Exp. Method 3/Practical/Assignment4/Assignment4")
+wd = setwd("C:/Users/annaa/OneDrive/3. semester/Exp. Method 3/Practical/Assignment3/Assignment4")
 library(tseriesChaos);library(nonlinearTseries);library(SparseM);library(crqa);library(lme4);library(modelr);library(tibble);library(MuMIn);library(stringr);library(dplyr);library(caret);library(Metrics);library(pROC);library(groupdata2)
 
 ```
@@ -111,7 +111,7 @@ test_spec[n]=test_matrix$byClass[2]
 test_ppv[n]=test_matrix$byClass[3]
 test_npv[n]=test_matrix$byClass[4]
 
-test_RocCurve=roc(response=testD$diagnosis,predictor = testD$Predictionslogodds)
+test_RocCurve=pROC::roc(response=testD$diagnosis,predictor = testD$Predictionslogodds)
 test_auc[n]=test_RocCurve$auc
 test_ciLower[n]=ci(test_RocCurve)[1]
 test_ciHigher[n]=ci(test_RocCurve)[2]
@@ -134,7 +134,7 @@ testdf = data.frame(test_accuracy,test_sen,test_spec,test_npv,test_ppv,test_auc,
 
 #i = predictor, x = data, 
 
-cvalid = function(i, p){
+cvalid = function(i){
 
 test_accuracy=NULL
 test_sen = NULL
@@ -147,7 +147,7 @@ test_ciHigher=NULL
 
 n=1
 
-for (i in seq(numfolds))
+for (fold in seq(numfolds))
   {
   testD=df_features[df_features$folds %in% fold,]
   trainD=df_features[!(df_features$folds %in% fold),]
@@ -164,7 +164,7 @@ test_spec[n]=test_matrix$byClass[2]
 test_ppv[n]=test_matrix$byClass[3]
 test_npv[n]=test_matrix$byClass[4]
 
-test_RocCurve=roc(response=testD$diagnosis,predictor = testD$Predictionslogodds)
+test_RocCurve=pROC::roc(response=testD$diagnosis,predictor = testD$Predictionslogodds)
 test_auc[n]=test_RocCurve$auc
 test_ciLower[n]=ci(test_RocCurve)[1]
 test_ciHigher[n]=ci(test_RocCurve)[2]
@@ -181,17 +181,18 @@ return(testdf)
 
 
 #make models with different predictors
-log_model_sd = glmer(diagnosis~ sd + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
-log_model_PR = glmer(diagnosis~ PR + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
-log_model_DET = glmer(diagnosis~ DET + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
-log_model_NRLINE = glmer(diagnosis~ NRLINE + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
-log_model_maxL = glmer(diagnosis~ maxL + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
-log_model_L = glmer(diagnosis~ L + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
-log_model_ENTR = glmer(diagnosis~ LAM + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
-log_model_TT = glmer(diagnosis~ TT + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
-log_model_mean = glmer(diagnosis~ mean + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
-log_model_range = glmer(diagnosis~ range + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
-log_model_median = glmer(diagnosis~ median + trial + (1+trial|Subject), data = df_features, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+
+log_model_sd = glmer(diagnosis~ sd + trial + (1+trial|Subject), data = trainD, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_PR = glmer(diagnosis~ PR + trial + (1+trial|Subject), data = trainD, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_DET = glmer(diagnosis~ DET + trial + (1+trial|Subject), data = trainD, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_NRLINE = glmer(diagnosis~ NRLINE + trial + (1+trial|Subject), data = trainD, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_maxL = glmer(diagnosis~ maxL + trial + (1+trial|Subject), data = trainD, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_L = glmer(diagnosis~ L + trial + (1+trial|Subject), data = trainD, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_ENTR = glmer(diagnosis~ LAM + trial + (1+trial|Subject), data = trainD, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_TT = glmer(diagnosis~ TT + trial + (1+trial|Subject), data = trainD, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_mean = glmer(diagnosis~ mean + trial + (1+trial|Subject), data = trainD, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_range = glmer(diagnosis~ range + trial + (1+trial|Subject), data = trainD, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
+log_model_median = glmer(diagnosis~ median + trial + (1+trial|Subject), data = trainD, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE))
 
 #data frames for each predictor
 a = cvalid(log_model_sd)
@@ -239,6 +240,9 @@ Remember:
 - After choosing the model, send Celine and Riccardo the code of your model
 
 ```{r}
+
+cvalid(glmer(diagnosis~ range + TT + trial + (1+trial|Subject), data = trainD, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
+
 
 
 
