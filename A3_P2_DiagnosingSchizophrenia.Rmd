@@ -219,11 +219,9 @@ g$predictor = "ENTR"
 h = cvalid(log_model_TT)
 h$predictor = "TT"
 
-i = cvalid(log_model_mean)
-i$predictor = "mean"
 
-j = cvalid(log_model_range)
-j$predictor = "range"
+i = cvalid(log_model_range)
+i$predictor = "range"
 
 #data frame with performance measure auc for all the predictors
 all_predictorsdf = rbind(a,b,c,d,e,f,g,h,i,j)
@@ -243,6 +241,7 @@ Remember:
 
 cvalid(glmer(diagnosis~ range + TT + trial + (1+trial|Subject), data = trainD, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
 
+cvalid(glmer(diagnosis~ range + TT + NRLINE + trial + (1+trial|Subject), data = trainD, family = "binomial", control = glmerControl(optimizer = "nloptwrap", calc.derivs = FALSE)))
 
 
 
